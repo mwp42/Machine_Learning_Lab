@@ -60,13 +60,15 @@ or_loss_negative <- or %>%
 or_custret <- or %>%
   group_by(Customer.Name) %>%
   filter(Returned == "Yes") %>%
-  summarize(Returns = n())
-##summarize(Returns = sum(Quantity))
+  summarize(Returns = sum(Quantity))
+##summarize(Returns = n())
+
 # How many customers returned 1,2,...etc times
 ret_count <- or_custret %>%
   group_by(Returns) %>%
-  summarize(Customers = n())
-##summarize(Customers = sum(Quantity))
+  summarize(Customers = sum(Quantity))
+##summarize(Customers = n())
+
 
 ret_plot <- ggplot(ret_count, aes(x = Returns, y = Customers))
 ret_plot + geom_bar(stat = "identity") +
@@ -76,8 +78,8 @@ ret_plot + geom_bar(stat = "identity") +
 regional_returns <- or %>%
   group_by(Region = Region.x) %>%
   filter(Returned == "Yes") %>%
-  summarize(Returns = n())
-##summarize(Returns = sum(Quantity))
+  summarize(Returns = sum(Quantity))
+##summarize(Returns = n())
 
 regional_sales = or %>%
   group_by(Region = Region.x) %>%
@@ -97,8 +99,8 @@ reg_plot + geom_bar(stat = "identity") +
 cat_returns <- or %>%
   group_by(Sub.Category) %>%
   filter(Returned == "Yes") %>%
-  summarize(Returns = n())
-##summarize(Returns = sum(Quantity))
+  summarize(Returns = sum(Quantity))
+##summarize(Returns = n())
 cat_sales = or %>%
   group_by(Sub.Category) %>%
   summarize(total = sum(Quantity))
@@ -112,3 +114,20 @@ cat_plot <- ggplot(cat_loss, aes (x = reorder(Sub.Category,-PercentReturned), y=
 
 cat_plot + geom_bar(stat = "identity") +
   labs(title = "Categorical returns/sales", x = "SubCategory", y = "Returns %")
+
+## Part 2 ##
+
+# Problem 4
+# Part 1 & 2
+or <- or %>%
+  mutate(Ret_bin = as.numeric(Returned == "Yes"),
+         Process.Time = Ship.Date - Order.Date)
+# Part 3
+ret_before <- or %>%
+  group_by(Product.ID) %>%
+  summarize(retbefore = sum(Ret_bin))
+or = merge(or,ret_before, by = "Product.ID", all = TRUE)
+
+# Problem 5
+
+
