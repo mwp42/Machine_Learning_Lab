@@ -4,6 +4,7 @@
 
 library(dplyr)
 library(ggplot2)
+library(caret)
 
 o <- read.csv("/Users/susmithasaripalli/Documents/NYCDSA/Machine_Learning_Lab/data/orders.csv", stringsAsFactors = FALSE)
 r <- read.csv("/Users/susmithasaripalli/Documents/NYCDSA/Machine_Learning_Lab/data/returns.csv", stringsAsFactors = FALSE)
@@ -14,13 +15,13 @@ summary(o)
 
 o$Profit <- gsub(",","",o$Profit, fixed=TRUE)
 o$Profit <- as.numeric(gsub("$","",o$Profit, fixed=TRUE))
-o$Sales <- gsub(",","",d$Sales, fixed=TRUE)
+o$Sales <- gsub(",","",o$Sales, fixed=TRUE)
 o$Sales <- as.numeric(gsub("$","",o$Sales, fixed=TRUE))
 
 # Problem 2
 
-o$Order.Date <- as.Date(d$Order.Date, "%m/%d/%y")
-o$Ship.Date <- as.Date(d$Ship.Date, "%m/%d/%y")
+o$Order.Date <- as.Date(o$Order.Date, "%m/%d/%y")
+o$Ship.Date <- as.Date(o$Ship.Date, "%m/%d/%y")
 
 oMonthly <- o %>%
   group_by(date= strftime(Order.Date,"%y/%m")) %>%
@@ -29,7 +30,7 @@ o_Monthly <- ggplot(data = oMonthly,aes(date,sold))
 o_Monthly + geom_point()
 # General trend of increased sales toward the end of the year, around holiday season
 
-o_cat<-d%>%
+o_cat<-o%>%
   group_by(.,date= strftime(Order.Date,"%y/%m"), Category)%>%
   summarise(.,Quantity=sum(Quantity))
 
@@ -66,8 +67,7 @@ or_custret <- or %>%
 # How many customers returned 1,2,...etc times
 ret_count <- or_custret %>%
   group_by(Returns) %>%
-  summarize(Customers = sum(Quantity))
-##summarize(Customers = n())
+  summarize(Customers = n())
 
 
 ret_plot <- ggplot(ret_count, aes(x = Returns, y = Customers))
@@ -129,9 +129,11 @@ ret_before <- or %>%
 or = merge(or,ret_before, by = "Product.ID", all = TRUE)
 
 # Problem 5
+
 or_ml <- subset(or, select=-c(Order.ID,Row.ID,Customer.ID, Customer.Name,Product.ID, 
-                              Product.Name,Region.y,Returned,Postal.Code, Region.x, 
+                              Product.Name,Region.y,Returned,Postal.Code, 
                               Region.y, Profit, Country))
+or_ml <- or_ml %>% mutate_if(is.character,as.factor)
 
 set.seed(123)
 orIndex = createDataPartition(or_ml$Ret_bin, p=0.8, list = F, times = 1)
@@ -139,9 +141,28 @@ orTrain = or_ml[orIndex,]
 orTest = or_ml[-orIndex,]
 
 summary(or_ml)
+# testing to make sure the ratios are correct
+or_mltest <- or_ml %>%
+  group_by(Ret_bin) %>%
+  summarise(n())
+or_mltest[2,2]/sum(or_mltest[,2])
+#0.04328329
+orTraintest <- orTrain %>%
+  group_by(Ret_bin) %>%
+  summarise(n())
+orTraintest[2,2]/sum(orTraintest[,2])
+#0.0438682
+orTesttest <- orTest %>%
+  group_by(Ret_bin) %>%
+  summarise(n())
+orTesttest[2,2]/sum(orTesttest[,2])
+#0.04094365
 
-
-
+# Fitting a model
+# Logistic regression
+#model <- glm(Ret_bin ~.,
+ #            family=binomial(link='logit'),
+  #           data=orTrain)
 
 
 
