@@ -129,5 +129,8 @@ ret_before <- or %>%
 or = merge(or,ret_before, by = "Product.ID", all = TRUE)
 
 # Problem 5
+or_ml <- subset(or, select=-c(Order.ID,Row.ID,Customer.ID, Customer.Name,Product.ID, 
+                              Product.Name,Region.y,Returned,Postal.Code, Region.x, 
+                              Region.y, Profit, Country))
 
 
