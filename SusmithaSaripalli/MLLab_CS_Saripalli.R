@@ -133,4 +133,15 @@ or_ml <- subset(or, select=-c(Order.ID,Row.ID,Customer.ID, Customer.Name,Product
                               Product.Name,Region.y,Returned,Postal.Code, Region.x, 
                               Region.y, Profit, Country))
 
+set.seed(123)
+orIndex = createDataPartition(or_ml$Ret_bin, p=0.8, list = F, times = 1)
+orTrain = or_ml[orIndex,]
+orTest = or_ml[-orIndex,]
+
+summary(or_ml)
+
+
+
+
+
 
