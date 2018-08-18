@@ -211,14 +211,15 @@ head(Orders.addReturns)
 
 ```{r}
 process.return <- Orders.addReturns%>%
-  group_by(.,Process.Time,Return) %>%
+  group_by(.,Process.Time,Return,Category) %>%
   summarise(Number=n()) 
 
 ggplot(data=process.return, aes(x=Process.Time, y=Number, group=Return))+
   geom_line(aes(color=Return))+
   geom_point(aes(color=Return))+
   xlab("Process Time")+
-  ylab("Number")
+  ylab("Number")+
+  facet_wrap(~Category)
 ```
 
 
@@ -236,18 +237,24 @@ summary(logit.Process.Time)
 ```
 
 ```{r}
-#Need to sum all the quantity for the return
-# Orders.addReturns%>%
-#   group_by(.,Product.ID,Return) %>%
-#   summarise(Number=sum(Quantity)) %>%
-#   filter(Return==1, Number>1) %>%
-#   arrange(desc(Number))
+Orders.addReturns$Returned = ifelse(Orders.addReturns$Order.ID %in% Returns$Order.ID,"Yes","No")
+#show be after the it returned?
 
-#list out by the return date
-Orders.addReturns%>%
- group_by(.,Product.ID,Return,Order.Date) %>%
-  arrange(desc(Order.Date)) %>%
-  filter(Return==1)
+or <- Orders.addReturns %>%
+  mutate(Process.Time = as.numeric(Ship.Date - Order.Date))
+
+Product <- or %>%
+  group_by(Product.ID)%>%
+  filter(Returned=="Yes") %>%
+  summarise(Return.Times=n())
+
+or<-left_join(or,Product,by=c("Product.ID"))
+or$Return.Times[is.na(or$Return.Times)] <- 0
+
+#see the return times
+or %>%
+  group_by(Product.ID) %>%
+  arrange(Product.ID,Order.Date)
 
 ```
 ### Problem 5: Fitting Models
@@ -258,35 +265,82 @@ Orders.addReturns%>%
 - Not that there are only less than 5% of the orders have been returned, so you should consider using the `createDataPartition` function from `caret` package that does a **stratified** random split of the data. Scikit-learn also has a [StratifiedKfold](http://scikit-learn.org/stable/modules/generated/sklearn.model_selection.StratifiedKFold.html#sklearn-model-selection-stratifiedkfold) function that does similar thing.
 - Do forget to `set.seed()` before the spilt to make your result reproducible.
 - **Note:** We are not looking for the best tuned model in the lab so don't spend too much time on grid search. Focus on model evaluation and the business use case of each model.
+```{r}
+
+library(caret)
+
+or$Returned<-as.character(or$Returned, levels=c("Yes","No"))
+or_ml <- subset(or, select=c(Sales,Quantity,Discount,Ship.Mode, Returned,Return.Times,Region=Region.x, Order.Month, Order.Priority,Process.Time))
+#Order.ID,Row.ID,Customer.ID, Customer.Name,Product.ID, Product.Name,Returned,Postal.Code, Region.y, Profit, Country)
+
+or_ml <- or_ml %>% mutate_if(is.character,as.factor)
+set.seed(123)
+orIndex = createDataPartition(or$Returned, p = .8, list = FALSE)
+orTrain = or_ml[orIndex,]
+orTest = or_ml[-orIndex,]
+
+library(pROC)
+fitControl <- trainControl(method = "none", 
+                           classProbs = TRUE,
+                           verboseIter = TRUE,
+                           summaryFunction = twoClassSummary)
+
+glm_model <- train(Returned ~ ., 
+                   data=orTrain, 
+                   method="glm",
+                   metric = "ROC",
+                   maximize = TRUE,
+                   trControl = fitControl)
+summary(glm_model)
+
+probsTrain <- predict(glm_model, orTrain, type = "prob")
+rocCurve   <- roc(response = orTrain$Returned,
+                  predictor = probsTrain[, "Yes"],
+                  levels = levels(orTrain$Returned))
+plot(rocCurve, print.thres = "best")
+
+# Find the best threshold from the ROC curve
+probsTest <- predict(glm_model, orTest, type = "prob")
+threshold <- 0.041
+pred      <- factor( ifelse(probsTest[, "Yes"] > threshold, "Yes", "No") )
+confusionMatrix(pred, orTest$Returned, positive='Yes')
+
+```
 
 ```{r}
 library(tree)
-library(caret)
-
-head(Orders.addReturns)
-
-#Fit a tree to the data; note that we are excluding Sales from the formula.
-tree.return = tree(High ~ . - Sales, split = "gini", data = Carseats)
-
+tree.train = tree(Returned ~ ., split = "gini", data = orTrain)
+summary(tree.train)
+plot(tree.train)
+tree.pred = predict(tree.train, orTest, type = "class")
+table(tree.pred, orTest$Returned)
+(9692+31)/(9692+31+413+122)
 ```
+
 ### Problem 6: Evaluating Models
 - What is the best metric to evaluate your model. Is accuracy good for this case?
 - Now you have multiple models, which one would you pick? 
 - Can you get any clue from the confusion matrix? What is the meaning of precision and recall in this case? Which one do you care the most? How will your model help the manager make decisions?
 - **Note:** The last question is open-ended. Your answer could be completely different depending on your understanding of this business problem.
-
 ```{r}
+#Using the one with higher precision rate to better identify which ones will actually be returned
+#tp/(tp+fp)
+#tree model 0.2026144
+31/(31+122)
+#logistic model 0.08164251
+338/(338+3802) 
+#Using Random Forest is better, 0.2>0.08
+#For items which are likely to be retruned, we can put on promotions and make them final sale
 
 ```
+
+
 ### Problem 7: Feature Engineering Revisit
 - Is there anything wrong with the new feature we generated? How should we fix it?
 - ***Hint***: For the real test set, we do not know it will get returned or not.
 
 ```{r}
-
-```
-
-```{r}
+#There are time series data, we should use split data before certain period for forcasting the future period
 
 ```
 
